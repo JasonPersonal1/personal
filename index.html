@@ -12,12 +12,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.touchswipe/1.6.19/jquery.touchSwipe.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <style>
+
     /* Base reset and body styling */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
     }
     ::selection {
   background-color: transparent;
@@ -32,6 +42,57 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+    }
+    body.dark-theme {
+      overflow: hidden; /* No scrollbars */
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #8B0000, #C41E3A);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 2s ease;
+      z-index: 0;
+    }
+    body.dark-theme::before {
+      opacity: 1;
+    }
+    /* Transition overlay effect */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(210, 4, 45, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 9999;
+      transition: opacity 0.3s ease;
+    }
+    body.transitioning::after {
+      animation: transitionFlash 1.5s ease;
+    }
+    @keyframes transitionFlash {
+      0% {
+        opacity: 0;
+      }
+      20% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.8;
+      }
+      100% {
+        opacity: 0;
+      }
     }
     /* Expanded white container with a semi-translucent look */
     .container {
@@ -44,12 +105,48 @@
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
       width: 90%;
       max-width: 600px;
+      transition: all 0.5s ease;
+      overflow: hidden;
+    }
+    .container.book-mode {
+      max-width: 800px;
+      width: auto;
+      padding: 2rem;
+      overflow: visible;
+    }
+    @media (max-width: 768px) {
+      body.dark-theme {
+        height: auto;
+        min-height: 100vh;
+        padding: 20px 0;
+      }
+      .container.book-mode {
+        padding: 1rem;
+        width: 100%;
+        max-width: none;
+      }
+      #flipbook-embed {
+        width: 90vw;
+        height: 60vw;
+        transform: perspective(1500px) rotateX(4deg);
+        box-shadow:
+          0 20px 40px rgba(0,0,0,0.8),
+          0 8px 15px rgba(0,0,0,0.5);
+      }
+      h1 {
+        font-size: 2rem;
+      }
     }
     h1 {
       font-family: 'Dancing Script', cursive;
       font-size: 3rem;
       color: #e60073;
       margin-bottom: 1rem;
+      transition: all 0.5s ease;
+    }
+    .container.book-mode h1 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
     }
     p {
       font-size: 1.25rem;
@@ -59,6 +156,19 @@
     .button-container {
       margin-top: 1.5rem;
       position: relative;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+    }
+    .button-container.quiz-complete {
+      justify-content: center;
+      gap: 0;
+    }
+    .button-container.quiz-complete #yes {
+      margin: 0 !important;
+    }
+    .button-container.quiz-complete #no {
+      display: none;
     }
     .button-container button {
       font-family: 'Outfit', sans-serif;
@@ -66,7 +176,7 @@
       color: #fff;
       border: none;
       padding: 0.75rem 2rem;
-      margin: 0 1rem;
+      margin: 0;
       border-radius: 25px;
       font-size: 1rem;
       cursor: pointer;
@@ -92,7 +202,7 @@
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.3s ease;
-      z-index: 3;
+      z-index: 1000;
     }
     .modal.active {
       opacity: 1;
@@ -102,13 +212,13 @@
       position: relative;
       background: #fff;
       padding: 2rem;
-      border-radius: 10px;
+      border-radius: 15px;
       text-align: center;
       transform: scale(0.7);
-      transition: transform 0.3s ease;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
       width: 80%;
-      max-width: 400px;
-    }
+      max-width: 450px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);\n    }
     .modal.active .modal-content {
       transform: scale(1);
     }
@@ -134,6 +244,242 @@
     }
     .modal-content .close:hover {
       color: #e60073;
+    }
+    .modal-content button {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(45deg, #e60073, #ff3366);
+      color: #fff;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 25px;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+      transition: background 0.3s, transform 0.3s;
+      margin-top: 1rem;
+    }
+    .modal-content button:hover {
+      background: linear-gradient(45deg, #ff3366, #e60073);
+      transform: scale(1.05);
+    }
+    /* Quiz styling */
+    .quiz-container {
+      text-align: left;
+      min-height: 200px;
+    }
+    .quiz-container .question {
+      display: none;
+      margin-bottom: 1.5rem;
+    }
+    .quiz-container .question.active {
+      display: block;
+    }
+    .quiz-container .question h3 {
+      color: #e60073;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    .quiz-container .question label {
+      display: block;
+      padding: 1rem 1.2rem;
+      padding-left: 3rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-radius: 8px;
+      margin-bottom: 0.6rem;
+      background: transparent;
+      position: relative;
+      font-size: 1rem;
+    }
+    .quiz-container .question label:hover {
+      background: rgba(230, 0, 115, 0.05);
+    }
+    .quiz-container .question input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    /* Minimal heart radio button */
+    .quiz-container .question label::before {
+      content: '♥';
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 20px;
+      color: #ddd;
+      transition: all 0.2s ease;
+      line-height: 1;
+    }
+    .quiz-container .question input[type="radio"]:checked + label {
+      background: rgba(230, 0, 115, 0.05);
+    }
+    .quiz-container .question input[type="radio"]:checked + label::before {
+      color: #e60073;
+    }
+    .quiz-result {
+      margin-top: 1rem;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .quiz-result.success {
+      color: #00c851;
+    }
+    .quiz-result.error {
+      color: #ff3547;
+    }
+    .quiz-navigation {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1.5rem;
+      gap: 1rem;
+    }
+    .quiz-navigation button {
+      flex: 1;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+    }
+    .quiz-navigation button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .question-counter {
+      text-align: center;
+      color: #e60073;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      font-weight: bold;
+    }
+    /* Dark Valentine Theme */
+    body.dark-theme {
+      animation: pageTransform 2s ease;
+    }
+    @keyframes pageTransform {
+      0% {
+        filter: brightness(1) saturate(1);
+      }
+      30% {
+        filter: brightness(0.3) saturate(0.5);
+      }
+      60% {
+        filter: brightness(0.5) saturate(1.5);
+      }
+      100% {
+        filter: brightness(1) saturate(1);
+      }
+    }
+    body.dark-theme .container {
+      background: rgba(20, 20, 20, 0.75);
+      border: 2px solid #D2042D;
+      box-shadow: 0 10px 30px rgba(210, 4, 45, 0.2);
+      transition: background 2s ease, border 2s ease, box-shadow 2s ease;
+    }
+    body.dark-theme h1 {
+      color: #D2042D;
+      transition: color 2s ease;
+    }
+    body.dark-theme p {
+      color: #d4d4d4;
+      transition: color 2s ease;
+    }
+    body.dark-theme .button-container button {
+      transition: background 2s ease, color 2s ease, box-shadow 2s ease;
+    }
+    body.dark-theme .button-container button {
+      background: linear-gradient(45deg, #D2042D, rgb(253, 11, 71));
+      border: none;
+      color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+    body.dark-theme .button-container button:hover {
+      background: linear-gradient(45deg, #ff3366, #D2042D);
+      transform: scale(1.05);
+      box-shadow: 0 6px 8px rgba(210, 4, 45, 0.3);
+    }
+    body.dark-theme #no {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1s ease;
+    }
+    /* Page transition out animation - black overlay */
+    .black-transition {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 99999;
+      transition: opacity 0.8s ease;
+    }
+    .black-transition.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+    /* Book message */
+    .book-message {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+    .book-message.show {
+      display: block;
+    }
+    .book-message a {
+      display: inline-block;
+      background: linear-gradient(45deg, #D2042D, #ff3366);
+      border: none;
+      color: white;
+      padding: 0.8rem 2rem;
+      text-decoration: none;
+      border-radius: 25px;
+      font-size: 1.1rem;
+      transition: transform 0.3s, box-shadow 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+      margin-top: 0.5rem;
+    }
+    body.dark-theme .book-message a:hover {
+      transform: scale(1.05);
+      background: linear-gradient(45deg, #ff3366, #D2042D);
+      box-shadow: 0 6px 8px rgba(210, 4, 45, 0.3);
+    }
+    .book-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+    body.dark-theme .book-message p {
+      color: #ffb3c1 !important;
+    }
+    /* Book display */
+    .book-display {
+      display: none;
+      margin-top: 2rem;
+      text-align: center;
+    }
+    .book-display.show {
+      display: block;
+    }
+    .book-display a {
+      display: inline-block;
+      background: linear-gradient(45deg, #e60073, #ff3366);
+      color: white;
+      padding: 1rem 2rem;
+      text-decoration: none;
+      border-radius: 25px;
+      font-size: 1.2rem;
+      transition: transform 0.3s, box-shadow 0.3s;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+    .book-display a:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 10px rgba(230, 0, 115, 0.4);
+    }
+    .book-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
     }
     /* Floating heart shape using CSS */
     .heart {
@@ -162,6 +508,47 @@
       left: 10px;
       top: 0;
     }
+    /* Rose petal using CSS - hidden by default */
+    .rose {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      animation: floatRose 10s linear infinite;
+      opacity: 0;
+      display: none;
+    }
+    body.dark-theme .rose {
+      display: block;
+      opacity: 0.75;
+    }
+    body.dark-theme .heart {
+      opacity: 0;
+      display: none;
+    }
+    /* CSS Rose Petal Shape - improved */
+    .rose::before {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 18px;
+      background: radial-gradient(ellipse at center, #ff4d6d 0%, #D2042D 70%);
+      border-radius: 50% 50% 0% 50%;
+      transform: rotate(45deg);
+      box-shadow: 0 2px 6px rgba(210, 4, 45, 0.3);
+    }
+    .rose::after {
+      content: '';
+      position: absolute;
+      width: 11px;
+      height: 15px;
+      background: radial-gradient(ellipse at center, #ff6b8a 0%, #ff3366 70%);
+      border-radius: 50% 50% 50% 0%;
+      transform: rotate(-30deg);
+      left: 4px;
+      top: 1px;
+      opacity: 0.85;
+      box-shadow: 0 1px 4px rgba(255, 51, 102, 0.2);
+    }
     /* Keyframes for floating hearts animation */
     @keyframes float {
       0% {
@@ -173,15 +560,118 @@
         opacity: 0;
       }
     }
+    @keyframes floatRose {
+      0% {
+        transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+        opacity: 0.75;
+      }
+      25% {
+        transform: translateY(-30vh) translateX(10px) rotate(90deg) scale(0.9);
+      }
+      50% {
+        transform: translateY(-60vh) translateX(-10px) rotate(180deg) scale(0.8);
+        opacity: 0.8;
+      }
+      75% {
+        transform: translateY(-90vh) translateX(15px) rotate(270deg) scale(0.7);
+      }
+      100% {
+        transform: translateY(-120vh) translateX(0) rotate(360deg) scale(0.5);
+        opacity: 0;
+      }
+    }
+    /* Book embed styling */
+    .book-embed {
+      display: none;
+      margin-top: 2rem;
+    }
+    .book-embed.show {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .book-container-embed {
+      position: relative;
+    }
+    /* BOOK SIZE */
+    #flipbook-embed {
+      width: 600px;
+      height: 400px;
+      transform: perspective(2000px) rotateX(6deg);
+      box-shadow:
+        0 40px 80px rgba(0,0,0,0.9),
+        0 15px 25px rgba(0,0,0,0.6);
+    }
+    /* pages */
+    #flipbook-embed .page {
+      background-color: #fff;
+      background-size: cover;
+      background-position: center;
+    }
+    /* HARD COVER FRONT/BACK */
+    #flipbook-embed .hard {
+      background: #111;
+      border-radius: 2px;
+    }
+    /* front cover image */
+    .cover {
+      background-size: cover;
+      background-position: center;
+    }
+    /* page thickness illusion */
+    .turn-page {
+      box-shadow:
+        0 0 25px rgba(0,0,0,0.5),
+        inset 0 0 30px rgba(0,0,0,0.15);
+    }
+    /* book spine shadow */
+    #flipbook-embed:before {
+      content: '';
+      position: absolute;
+      width: 30px;
+      height: 100%;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+      background: linear-gradient(to right,rgba(0,0,0,0.4),transparent,rgba(0,0,0,0.4));
+      pointer-events: none;
+      z-index: 999;
+    }
+    .book-controls {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="main-container">
     <h1>Will You Be My Valentine?</h1>
-    <p>You are loved and appreciated!</p>
+    <p id="main-text">You are loved and appreciated!</p>
     <div class="button-container">
       <button id="yes">Yes</button>
       <button id="no">No</button>
+    </div>
+    
+    <!-- Embedded Book (shown after Yes in dark theme) -->
+    <div class="book-embed" id="book-embed">
+      <div class="book-container-embed">
+        <div id="flipbook-embed">
+          <!-- FRONT HARD COVER -->
+          <div class="hard cover" style="background-image:url(front-cover.jpeg)"></div>
+          <div class="hard"></div>
+
+          <!-- PAGES -->
+          <div class="page" style="background-image:url(page1.jpeg)"></div>
+          <div class="page" style="background-image:url(page2.jpeg)"></div>
+          <div class="page" style="background-image:url(page3.jpeg)"></div>
+          <div class="page" style="background-image:url(page4.jpeg)"></div>
+          <div class="page" style="background-image:url(page5.jpeg)"></div>
+          <div class="page" style="background-image:url(page6.jpeg)"></div>
+
+          <!-- BACK -->
+          <div class="hard"></div>
+          <div class="hard cover" style="background-image:url()"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -189,10 +679,88 @@
   <div id="modal" class="modal">
     <div class="modal-content">
       <span class="close">&times;</span>
-      <h2>My Heart Belongs to You!</h2>
-      <p style="font-size: 16px;">Dakhiloo tizikk anaa 💖</p>
-      <p style="font-size: 16px;">Thank you for making me the happiest person alive. 🌹</p>
-      <p style="font-size: 16px;">Forever yours! <3</p>
+      
+      <!-- Initial Message -->
+      <div id="initial-message">
+        <h2>My Heart Belongs to You!</h2>
+        <p style="font-size: 16px;">Dakhiloo tizikk anaa 💖</p>
+        <p style="font-size: 16px;">Thank you for making me the happiest person alive. 🌹</p>
+        <p style="font-size: 16px;">Forever yours! <3</p>
+        <button id="start-quiz-btn">Click here bebe!</button>
+      </div>
+      
+      <!-- Quiz Section -->
+      <div id="quiz-section" style="display: none;">
+        <h2>Is this Tina Quiz 💕</h2>
+        <div class="question-counter">
+          Question <span id="current-question">1</span> of 5
+        </div>
+        <div class="quiz-container">
+          <div class="question active" data-question="1">
+            <h3>What will i wear at Valentine's?</h3>
+            <input type="radio" name="q1" value="Black Chemise" id="q1a">
+            <label for="q1a">Black Chemise</label>
+            <input type="radio" name="q1" value="Hazmat Suit" id="q1b">
+            <label for="q1b">Hazmat Suit</label>
+            <input type="radio" name="q1" value="Pink Suit" id="q1c">
+            <label for="q1c">Pink Suit</label>
+          </div>
+          
+          <div class="question" data-question="2">
+            <h3>Where are we going tomorrow?</h3>
+            <input type="radio" name="q2" value="Dr. Kafta" id="q2a">
+            <label for="q2a">Dr. Kafta</label>
+            <input type="radio" name="q2" value="Abou Mokh" id="q2b">
+            <label for="q2b">Abou Mokh</label>
+            <input type="radio" name="q2" value="Otis" id="q2c">
+            <label for="q2c">Otis</label>
+          </div>
+          
+          <div class="question" data-question="3">
+            <h3>What is the name of Tina disease?</h3>
+            <input type="radio" name="q3" value="Halls" id="q3a">
+            <label for="q3a">Halls</label>
+            <input type="radio" name="q3" value="Mentos" id="q3b">
+            <label for="q3b">Mentos</label>
+            <input type="radio" name="q3" value="Strepsils" id="q3c">
+            <label for="q3c">Strepsils</label>
+          </div>
+          
+          <div class="question" data-question="4">
+            <h3>What is Tina favorite sneaky link?</h3>
+            <input type="radio" name="q4" value="Otis" id="q4a">
+            <label for="q4a">Otis</label>
+            <input type="radio" name="q4" value="Tiggy" id="q4b">
+            <label for="q4b">Tiggy</label>
+            <input type="radio" name="q4" value="Sweety" id="q4c">
+            <label for="q4c">Sweety</label>
+          </div>
+          
+          <div class="question" data-question="5">
+            <h3>What is Tina favorite car?</h3>
+            <input type="radio" name="q5" value="Lamborghini" id="q5a">
+            <label for="q5a">Lamborghini</label>
+            <input type="radio" name="q5" value="Bugatti" id="q5b">
+            <label for="q5b">Bugatti</label>
+            <input type="radio" name="q5" value="Kia Picanto 2012 Blue and Black" id="q5c">
+            <label for="q5c">Kia Picanto 2012 Blue and Black</label>
+          </div>
+        </div>
+        <div class="quiz-navigation">
+          <button id="prev-btn" disabled>Previous</button>
+          <button id="next-btn">Next</button>
+          <button id="submit-quiz-btn" style="display: none;">Submit</button>
+        </div>
+        <div id="quiz-result" class="quiz-result"></div>
+      </div>
+      
+      <!-- Book Display -->
+      <div id="book-display" class="book-display">
+        <div class="book-icon">📖</div>
+        <h2>Our Story Awaits!</h2>
+        <p>You've unlocked something special...</p>
+        <a href="book.html" target="_blank">Open Our Book</a>
+      </div>
     </div>
   </div>
 
@@ -202,6 +770,25 @@
   <div class="heart" style="left: 50%; animation-delay: 2s; top: 110%;"></div>
   <div class="heart" style="left: 70%; animation-delay: 3s; top: 110%;"></div>
   <div class="heart" style="left: 90%; animation-delay: 4s; top: 110%;"></div>
+  
+  <!-- Floating roses (only visible in dark theme) -->
+  <div class="rose" style="left: 5%; animation-delay: 0s; top: 110%; animation-duration: 12s;"></div>
+  <div class="rose" style="left: 15%; animation-delay: 0.5s; top: 110%; animation-duration: 10s;"></div>
+  <div class="rose" style="left: 25%; animation-delay: 2s; top: 110%; animation-duration: 14s;"></div>
+  <div class="rose" style="left: 35%; animation-delay: 1.5s; top: 110%; animation-duration: 11s;"></div>
+  <div class="rose" style="left: 45%; animation-delay: 3s; top: 110%; animation-duration: 13s;"></div>
+  <div class="rose" style="left: 55%; animation-delay: 2.5s; top: 110%; animation-duration: 10s;"></div>
+  <div class="rose" style="left: 65%; animation-delay: 4s; top: 110%; animation-duration: 12s;"></div>
+  <div class="rose" style="left: 75%; animation-delay: 3.5s; top: 110%; animation-duration: 11s;"></div>
+  <div class="rose" style="left: 85%; animation-delay: 1s; top: 110%; animation-duration: 14s;"></div>
+  <div class="rose" style="left: 95%; animation-delay: 4.5s; top: 110%; animation-duration: 13s;"></div>
+  <div class="rose" style="left: 20%; animation-delay: 5s; top: 110%; animation-duration: 10s;"></div>
+  <div class="rose" style="left: 40%; animation-delay: 6s; top: 110%; animation-duration: 12s;"></div>
+  <div class="rose" style="left: 60%; animation-delay: 5.5s; top: 110%; animation-duration: 11s;"></div>
+  <div class="rose" style="left: 80%; animation-delay: 6.5s; top: 110%; animation-duration: 13s;"></div>
+
+  <!-- Black transition overlay -->
+  <div class="black-transition" id="black-transition"></div>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
@@ -209,10 +796,26 @@
       const noButton = document.getElementById('no');
       const modal = document.getElementById('modal');
       const closeModal = document.querySelector('.modal-content .close');
+      const bookEmbed = document.getElementById('book-embed');
+      const mainContainer = document.getElementById('main-container');
+      const mainText = document.getElementById('main-text');
+      let quizCompleted = false;
 
-      // When "Yes" is clicked, open the modal with transition.
+      // When "Yes" is clicked, redirect to book.html
       yesButton.addEventListener('click', () => {
-        modal.classList.add('active');
+        if (quizCompleted) {
+          // Fade to black transition
+          const blackTransition = document.getElementById('black-transition');
+          blackTransition.classList.add('active');
+          
+          // Redirect after transition completes
+          setTimeout(() => {
+            window.location.href = 'book.html';
+          }, 900);
+        } else {
+          // Otherwise, open modal for quiz
+          modal.classList.add('active');
+        }
       });
 
       // Close the modal when the close button is clicked.
@@ -246,6 +849,138 @@
           const randomY = Math.random() * (window.innerHeight - this.offsetHeight);
           this.style.left = randomX + 'px';
           this.style.top = randomY + 'px';
+        }
+      });
+
+      // Quiz functionality
+      const startQuizBtn = document.getElementById('start-quiz-btn');
+      const submitQuizBtn = document.getElementById('submit-quiz-btn');
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+      const initialMessage = document.getElementById('initial-message');
+      const quizSection = document.getElementById('quiz-section');
+      const quizResult = document.getElementById('quiz-result');
+      const bookDisplay = document.getElementById('book-display');
+      const currentQuestionSpan = document.getElementById('current-question');
+      const questions = document.querySelectorAll('.question');
+      
+      let currentQuestion = 1;
+      const totalQuestions = 5;
+
+      // Correct answers
+      const correctAnswers = {
+        q1: 'Hazmat Suit',
+        q2: 'Otis',
+        q3: 'Strepsils',
+        q4: 'Sweety',
+        q5: 'Kia Picanto 2012 Blue and Black'
+      };
+
+      // Show quiz when button clicked
+      startQuizBtn.addEventListener('click', () => {
+        initialMessage.style.display = 'none';
+        quizSection.style.display = 'block';
+        currentQuestion = 1;
+        updateQuestionDisplay();
+      });
+
+      // Update question display
+      function updateQuestionDisplay() {
+        // Hide all questions
+        questions.forEach(q => q.classList.remove('active'));
+        
+        // Show current question
+        const activeQ = document.querySelector(`.question[data-question="${currentQuestion}"]`);
+        if (activeQ) activeQ.classList.add('active');
+        
+        // Update counter
+        currentQuestionSpan.textContent = currentQuestion;
+        
+        // Update button states
+        prevBtn.disabled = currentQuestion === 1;
+        
+        if (currentQuestion === totalQuestions) {
+          nextBtn.style.display = 'none';
+          submitQuizBtn.style.display = 'block';
+        } else {
+          nextBtn.style.display = 'block';
+          submitQuizBtn.style.display = 'none';
+        }
+      }
+
+      // Previous button
+      prevBtn.addEventListener('click', () => {
+        if (currentQuestion > 1) {
+          currentQuestion--;
+          updateQuestionDisplay();
+        }
+      });
+
+      // Next button
+      nextBtn.addEventListener('click', () => {
+        if (currentQuestion < totalQuestions) {
+          currentQuestion++;
+          updateQuestionDisplay();
+        }
+      });
+
+      // Submit quiz answers
+      submitQuizBtn.addEventListener('click', () => {
+        let score = 0;
+        let allAnswered = true;
+
+        // Check all answers
+        for (let i = 1; i <= 5; i++) {
+          const selected = document.querySelector(`input[name="q${i}"]:checked`);
+          if (!selected) {
+            allAnswered = false;
+            break;
+          }
+          if (selected.value === correctAnswers[`q${i}`]) {
+            score++;
+          }
+        }
+
+        // Validate all questions answered
+        if (!allAnswered) {
+          quizResult.className = 'quiz-result error';
+          quizResult.textContent = 'Please answer all questions!';
+          return;
+        }
+
+        // Check if all 5 correct
+        if (score === 5) {
+          // All correct - silently close and transform!
+          modal.classList.remove('active');
+          
+          // Wait 2 seconds, then start transformation
+          setTimeout(() => {
+            document.body.classList.add('transitioning');
+            setTimeout(() => {
+              document.body.classList.add('dark-theme');
+              quizCompleted = true;
+              
+              // Center the Yes button
+              document.querySelector('.button-container').classList.add('quiz-complete');
+              
+              // Remove transitioning class after animation
+              setTimeout(() => {
+                document.body.classList.remove('transitioning');
+              }, 1500);
+            }, 200);
+          }, 1000);
+        } else {
+          // Not all correct - show error
+          quizResult.className = 'quiz-result error';
+          quizResult.textContent = `You got ${score}/5 correct. You need all 5 correct! Try again 💕`;
+          
+          // Reset quiz after 2 seconds
+          setTimeout(() => {
+            document.querySelectorAll('input[type="radio"]').forEach(input => {
+              input.checked = false;
+            });
+            quizResult.textContent = '';
+          }, 2000);
         }
       });
     });
